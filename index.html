@@ -93,10 +93,10 @@
     </audio>
 
     <script>
+        // Set initialization variables to 50
         let audioCtx, difficulty = 50, isDragging = false, isProcessing = false, timerInterval;
         let musicStarted = false;
 
-        // Centralized function to try and start music
         function tryStartMusic() {
             if (!musicStarted) {
                 const music = document.getElementById('bgMusic');
@@ -107,7 +107,6 @@
             }
         }
 
-        // Add a global listener for the very first interaction
         window.addEventListener('click', tryStartMusic, { once: true });
         window.addEventListener('touchstart', tryStartMusic, { once: true });
 
@@ -212,7 +211,6 @@
         }
 
         function startDrag(cell) { 
-            // Try to start music just in case
             tryStartMusic();
             if (!isProcessing) { 
                 isDragging = true; selectedCells = [cell]; cell.classList.add('selected'); 
