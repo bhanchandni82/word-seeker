@@ -62,10 +62,10 @@
                 <label for="timer-select" class="text-xs text-slate-400">Time per round:</label>
                 <select id="timer-select" onchange="updateDifficulty(this.value)" class="bg-slate-900 text-white text-sm py-1 px-2 rounded-lg border border-slate-600 focus:outline-none focus:border-indigo-500">
                     <option value="10">10s</option>
-                    <option value="20" selected>20s</option>
+                    <option value="20">20s</option>
                     <option value="30">30s</option>
                     <option value="40">40s</option>
-                    <option value="50">50s</option>
+                    <option value="50" selected>50s</option>
                     <option value="60">60s</option>
                 </select>
                 <button onclick="toggleMusic()" id="music-btn" class="bg-slate-900 px-3 py-1 rounded-lg border border-slate-600 text-sm hover:bg-slate-700">🔊</button>
@@ -93,7 +93,7 @@
     </audio>
 
     <script>
-        let audioCtx, difficulty = 20, isDragging = false, isProcessing = false, timerInterval;
+        let audioCtx, difficulty = 50, isDragging = false, isProcessing = false, timerInterval;
         let musicStarted = false;
 
         // Centralized function to try and start music
@@ -129,7 +129,7 @@
             { word: "BALLOON", clue: "It floats in the air." }, { word: "PIZZA", clue: "A popular Italian meal." }
         ];
 
-        let challenges = [], currentChallenge = 0, lives = 5, score = 0, timeLeft = 20, selectedCells = [], targetWord = "", correctCellPositions = [];
+        let challenges = [], currentChallenge = 0, lives = 5, score = 0, timeLeft = 50, selectedCells = [], targetWord = "", correctCellPositions = [];
         const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-teal-500'];
 
         function toggleMusic() {
