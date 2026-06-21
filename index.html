@@ -96,6 +96,21 @@
         let audioCtx, difficulty = 20, isDragging = false, isProcessing = false, timerInterval;
         let musicStarted = false;
 
+        // Centralized function to try and start music
+        function tryStartMusic() {
+            if (!musicStarted) {
+                const music = document.getElementById('bgMusic');
+                music.play().then(() => {
+                    musicStarted = true;
+                    console.log("Music started successfully");
+                }).catch(e => console.log("Still waiting for user gesture..."));
+            }
+        }
+
+        // Add a global listener for the very first interaction
+        window.addEventListener('click', tryStartMusic, { once: true });
+        window.addEventListener('touchstart', tryStartMusic, { once: true });
+
         const fullLibrary = [
             { word: "BANANA", clue: "A yellow fruit." }, { word: "PLANET", clue: "A large body orbiting a star." },
             { word: "ROCKET", clue: "Used to travel to space." }, { word: "MAGNET", clue: "It attracts iron." },
@@ -123,6 +138,7 @@
             if (music.paused) {
                 music.play();
                 btn.textContent = "🔊";
+                musicStarted = true;
             } else {
                 music.pause();
                 btn.textContent = "🔇";
@@ -196,10 +212,8 @@
         }
 
         function startDrag(cell) { 
-            if (!musicStarted) {
-                document.getElementById('bgMusic').play().catch(e => console.log("Music interaction required"));
-                musicStarted = true;
-            }
+            // Try to start music just in case
+            tryStartMusic();
             if (!isProcessing) { 
                 isDragging = true; selectedCells = [cell]; cell.classList.add('selected'); 
                 playSound(440, 'sine', 0.1);
