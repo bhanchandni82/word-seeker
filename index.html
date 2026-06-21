@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Seeker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --paw-svg: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23facc15"><path d="M12 2C9.24 2 7 4.24 7 7v2c0 1.66 1.34 3 3 3s3-1.34 3-3V7c0-2.76-2.24-5-5-5zM17 9c0 1.66 1.34 3 3 3s3-1.34 3-3V7c0-2.76-2.24-5-5-5s-5 2.24-5 5v2c0 1.66 1.34 3 3 3s3-1.34 3-3V7c0-2.76-2.24-5-5-5z"/></svg>');
+        }
+        body {
+            background-color: var(--bg-color);
+            cursor: var(--paw-svg) 12 12, auto;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+        .grid-cell {
+            transition: all 0.1s ease;
+            user-select: none;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+            font-size: clamp(14px, 4.5vw, 22px);
+            font-weight: 800;
+        }
+        .selected {
+            background-color: #ffffff !important;
+            color: #000 !important;
+            border: 4px solid #f472b6;
+            transform: scale(0.95);
+        }
+        .reveal-correct {
+            background-color: #f59e0b !important;
+            color: #fff !important;
+            transform: scale(1.1);
+        }
+        .confetti {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: explode 1s ease-out forwards;
+        }
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0) translate(100px, -100px); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen flex items-center justify-center p-2">
+
+    <div id="game-container" class="max-w-md w-full bg-slate-800 p-5 rounded-2xl shadow-2xl border-4 border-slate-700">
+        <header class="flex flex-col items-center mb-5 gap-2">
+            <h1 class="text-2xl font-bold text-yellow-400 italic tracking-widest">WORD SEEKER</h1>
+            <div class="flex gap-2">
+                <button onclick="setDifficulty(10)" id="btn-10" class="bg-indigo-900 px-3 py-1 rounded-lg text-xs font-bold opacity-70">Fast (10s)</button>
+                <button onclick="setDifficulty(20)" id="btn-20" class="bg-indigo-600 px-3 py-1 rounded-lg text-xs font-bold border-b-2 border-indigo-800">Slow (20s)</button>
+            </div>
+            <div class="flex gap-4">
+                <div class="bg-slate-900 px-3 py-1 rounded-lg border border-slate-600 text-sm">Lives: <span id="lives" class="text-red-500 font-bold">5</span></div>
+                <div class="bg-slate-900 px-3 py-1 rounded-lg border border-slate-600 text-sm">Score: <span id="score" class="text-green-400 font-bold">0</span></div>
+            </div>
+        </header>
+
+        <div id="clue-box" class="mb-5 text-center bg-slate-900 p-4 rounded-xl border-2 border-dashed border-indigo-500">
+            <h2 id="clue" class="text-md font-medium text-indigo-200 italic">Loading challenge...</h2>
+            <div class="mt-3 w-full bg-slate-700 h-2 rounded-full overflow-hidden">
+                <div id="timer-bar" class="bg-yellow-400 h-full w-full transition-all duration-1000 ease-linear"></div>
+            </div>
+        </div>
+
+        <div id="grid" class="grid grid-cols-8 gap-2 aspect-square w-full mx-auto"></div>
+    </div>
+
+    <script>
+        let audioCtx, difficulty = 20, isDragging = false, isProcessing = false, timerInterval;
+
+        const fullLibrary = [
+            { word: "BANANA", clue: "A yellow fruit." }, { word: "PLANET", clue: "A large body orbiting a star." },
+            { word: "ROCKET", clue: "Used to travel to space." }, { word: "MAGNET", clue: "It attracts iron." },
+            { word: "FOSSIL", clue: "Ancient life preserved in rock." }, { word: "FOREST", clue: "A place with many trees." },
+            { word: "GALAXY", clue: "A massive system of stars." }, { word: "WINTER", clue: "The coldest season." },
+            { word: "DESERT", clue: "A dry, sandy place." }, { word: "OXYGEN", clue: "The gas we need to breathe." },
+            { word: "GRAVITY", clue: "What keeps us on the ground." }, { word: "JUPITER", clue: "The largest planet." },
+            { word: "DOLPHIN", clue: "A smart marine mammal." }, { word: "PENGUIN", clue: "A flightless bird of the ice." },
+            { word: "VOLCANO", clue: "A mountain that erupts lava." }, { word: "THUNDER", clue: "The sound during a storm." },
+            { word: "DIAMOND", clue: "A hard, precious stone." }, { word: "PIRATE", clue: "One who sails in search of gold." },
+            { word: "CAMERA", clue: "Used to take photographs." }, { word: "BICYCLE", clue: "A vehicle with two wheels." },
+            { word: "APPLE", clue: "A crunchy, round fruit." }, { word: "SCHOOL", clue: "A place of learning." },
+            { word: "LIBRARY", clue: "A building full of books." }, { word: "HAMSTER", clue: "A small, fuzzy pet." },
+            { word: "CACTUS", clue: "A prickly desert plant." }, { word: "PUMPKIN", clue: "An orange vegetable." },
+            { word: "MIRROR", clue: "Shows your reflection." }, { word: "KITCHEN", clue: "Where food is prepared." },
+            { word: "BALLOON", clue: "It floats in the air." }, { word: "PIZZA", clue: "A popular Italian meal." }
+        ];
+
+        let challenges = [], currentChallenge = 0, lives = 5, score = 0, timeLeft = 20, selectedCells = [], targetWord = "", correctCellPositions = [];
+        const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-teal-500'];
+
+        function playSound(freq, type, duration) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function setDifficulty(time) {
+            difficulty = time;
+            document.getElementById('btn-10').className = time === 10 ? "bg-indigo-600 px-3 py-1 rounded-lg text-xs font-bold border-b-2 border-indigo-800" : "bg-indigo-900 px-3 py-1 rounded-lg text-xs font-bold opacity-70";
+            document.getElementById('btn-20').className = time === 20 ? "bg-indigo-600 px-3 py-1 rounded-lg text-xs font-bold border-b-2 border-indigo-800" : "bg-indigo-900 px-3 py-1 rounded-lg text-xs font-bold opacity-70";
+            resetGame();
+        }
+
+        function resetGame() {
+            challenges = [...fullLibrary].sort(() => Math.random() - 0.5);
+            currentChallenge = 0; lives = 5; score = 0;
+            document.getElementById('lives').textContent = lives; document.getElementById('score').textContent = score;
+            nextLevel();
+        }
+
+        function generateGrid() {
+            const gridEl = document.getElementById('grid'); gridEl.innerHTML = '';
+            targetWord = challenges[currentChallenge].word;
+            document.getElementById('clue').textContent = challenges[currentChallenge].clue;
+            const board = Array(64).fill(null);
+            const dirs = [{dr: 0, dc: 1}, {dr: 1, dc: 0}, {dr: 1, dc: 1}, {dr: -1, dc: 1}, {dr: 1, dc: -1}, {dr: -1, dc: -1}];
+            correctCellPositions = [];
+
+            let placed = false;
+            while (!placed) {
+                const dir = dirs[Math.floor(Math.random() * dirs.length)];
+                const row = Math.floor(Math.random() * 8), col = Math.floor(Math.random() * 8);
+                if (row + dir.dr * (targetWord.length - 1) >= 0 && row + dir.dr * (targetWord.length - 1) < 8 && 
+                    col + dir.dc * (targetWord.length - 1) >= 0 && col + dir.dc * (targetWord.length - 1) < 8) {
+                    for(let i = 0; i < targetWord.length; i++) {
+                        const pos = (row + dir.dr * i) * 8 + (col + dir.dc * i);
+                        board[pos] = targetWord[i]; correctCellPositions.push(pos);
+                    }
+                    placed = true;
+                }
+            }
+            board.forEach((val, index) => {
+                const cell = document.createElement('div');
+                cell.textContent = val || String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                cell.className = `grid-cell ${colors[Math.floor(Math.random() * colors.length)]} flex items-center justify-center rounded-md aspect-square cursor-pointer select-none`;
+                cell.onmousedown = (e) => { e.preventDefault(); startDrag(cell); };
+                cell.onmouseenter = () => continueDrag(cell);
+                cell.ontouchstart = (e) => { e.preventDefault(); startDrag(cell); };
+                cell.ontouchmove = (e) => { 
+                    const touch = e.touches[0];
+                    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (el && el.classList.contains('grid-cell')) continueDrag(el);
+                };
+                cell.onmouseup = endDrag;
+                cell.ontouchend = endDrag;
+                gridEl.appendChild(cell);
+            });
+        }
+
+        function startDrag(cell) { 
+            if (!isProcessing) { 
+                isDragging = true; selectedCells = [cell]; cell.classList.add('selected'); 
+                playSound(440, 'sine', 0.1);
+            } 
+        }
+        function continueDrag(cell) {
+            if (!isDragging) return;
+            const index = selectedCells.indexOf(cell);
+            if (index > -1) {
+                for (let i = index + 1; i < selectedCells.length; i++) selectedCells[i].classList.remove('selected');
+                selectedCells = selectedCells.slice(0, index + 1);
+            } else { 
+                selectedCells.push(cell); cell.classList.add('selected'); 
+                playSound(550, 'sine', 0.05);
+            }
+        }
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            if (selectedCells.length === targetWord.length) {
+                if (selectedCells.map(c => c.textContent).join('') === targetWord) winRound();
+                else failRound();
+            } else {
+                selectedCells.forEach(c => c.classList.remove('selected'));
+                selectedCells = [];
+            }
+        }
+        function winRound() { 
+            clearInterval(timerInterval); score += 10; document.getElementById('score').textContent = score; 
+            playSound(880, 'square', 0.3); triggerConfetti(); nextLevel(); 
+        }
+        function failRound() {
+            playSound(150, 'sawtooth', 0.5);
+            lives--; document.getElementById('lives').textContent = lives;
+            if (lives <= 0) { alert("Game Over! Score: " + score); resetGame(); }
+            else { 
+                isProcessing = true;
+                correctCellPositions.forEach(pos => document.querySelectorAll('.grid-cell')[pos].classList.add('reveal-correct'));
+                setTimeout(() => { isProcessing = false; nextLevel(); }, 1200);
+            }
+        }
+        function startTimer() {
+            timeLeft = difficulty; clearInterval(timerInterval);
+            timerInterval = setInterval(() => { timeLeft--; document.getElementById('timer-bar').style.width = `${(timeLeft / difficulty) * 100}%`;
+                if (timeLeft <= 0) { clearInterval(timerInterval); failRound(); } }, 1000);
+        }
+        function nextLevel() { selectedCells = []; currentChallenge = (currentChallenge + 1) % challenges.length; generateGrid(); startTimer(); }
+        function triggerConfetti() {
+            for(let i = 0; i < 20; i++) {
+                const div = document.createElement('div'); div.className = 'confetti'; div.style.left = Math.random() * 100 + '%'; div.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+                document.body.appendChild(div); setTimeout(() => div.remove(), 1000);
+            }
+        }
+        window.onload = () => { resetGame(); };
+    </script>
+</body>
+</html>
