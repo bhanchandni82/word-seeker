@@ -31,9 +31,12 @@
             transform: scale(0.95);
         }
         .reveal-correct {
-            background-color: #f59e0b !important;
-            color: #fff !important;
-            transform: scale(1.1);
+            background-color: #00ffcc !important;
+            color: #000 !important;
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 15px #00ffcc;
+            transform: scale(1.05);
+            z-index: 10;
         }
         .confetti {
             position: absolute;
@@ -54,18 +57,29 @@
     <div id="game-container" class="max-w-md w-full bg-slate-800 p-5 rounded-2xl shadow-2xl border-4 border-slate-700">
         <header class="flex flex-col items-center mb-5 gap-2">
             <h1 class="text-2xl font-bold text-yellow-400 italic tracking-widest">WORD SEEKER</h1>
-            <div class="flex gap-2">
-                <button onclick="setDifficulty(10)" id="btn-10" class="bg-indigo-900 px-3 py-1 rounded-lg text-xs font-bold opacity-70">Fast (10s)</button>
-                <button onclick="setDifficulty(20)" id="btn-20" class="bg-indigo-600 px-3 py-1 rounded-lg text-xs font-bold border-b-2 border-indigo-800">Slow (20s)</button>
+            
+            <div class="flex items-center gap-2 mt-2">
+                <label for="timer-select" class="text-xs text-slate-400">Time per round:</label>
+                <select id="timer-select" onchange="updateDifficulty(this.value)" class="bg-slate-900 text-white text-sm py-1 px-2 rounded-lg border border-slate-600 focus:outline-none focus:border-indigo-500">
+                    <option value="10">10s</option>
+                    <option value="20" selected>20s</option>
+                    <option value="30">30s</option>
+                    <option value="40">40s</option>
+                    <option value="50">50s</option>
+                    <option value="60">60s</option>
+                </select>
+                <button onclick="toggleMusic()" id="music-btn" class="bg-slate-900 px-3 py-1 rounded-lg border border-slate-600 text-sm hover:bg-slate-700">🔊</button>
             </div>
-            <div class="flex gap-4">
+
+            <div class="flex gap-4 mt-2">
                 <div class="bg-slate-900 px-3 py-1 rounded-lg border border-slate-600 text-sm">Lives: <span id="lives" class="text-red-500 font-bold">5</span></div>
                 <div class="bg-slate-900 px-3 py-1 rounded-lg border border-slate-600 text-sm">Score: <span id="score" class="text-green-400 font-bold">0</span></div>
             </div>
         </header>
 
         <div id="clue-box" class="mb-5 text-center bg-slate-900 p-4 rounded-xl border-2 border-dashed border-indigo-500">
-            <h2 id="clue" class="text-md font-medium text-indigo-200 italic">Loading challenge...</h2>
+            <h2 id="clue" class="text-md font-medium text-indigo-200 italic">Loading...</h2>
+            <h3 id="missed-word" class="hidden text-lg font-bold text-cyan-400 mt-2"></h3>
             <div class="mt-3 w-full bg-slate-700 h-2 rounded-full overflow-hidden">
                 <div id="timer-bar" class="bg-yellow-400 h-full w-full transition-all duration-1000 ease-linear"></div>
             </div>
@@ -74,8 +88,13 @@
         <div id="grid" class="grid grid-cols-8 gap-2 aspect-square w-full mx-auto"></div>
     </div>
 
+    <audio id="bgMusic" loop>
+        <source src="The_Fox_s_Garden_Walk.mp3" type="audio/mpeg">
+    </audio>
+
     <script>
         let audioCtx, difficulty = 20, isDragging = false, isProcessing = false, timerInterval;
+        let musicStarted = false;
 
         const fullLibrary = [
             { word: "BANANA", clue: "A yellow fruit." }, { word: "PLANET", clue: "A large body orbiting a star." },
@@ -98,6 +117,18 @@
         let challenges = [], currentChallenge = 0, lives = 5, score = 0, timeLeft = 20, selectedCells = [], targetWord = "", correctCellPositions = [];
         const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-teal-500'];
 
+        function toggleMusic() {
+            const music = document.getElementById('bgMusic');
+            const btn = document.getElementById('music-btn');
+            if (music.paused) {
+                music.play();
+                btn.textContent = "🔊";
+            } else {
+                music.pause();
+                btn.textContent = "🔇";
+            }
+        }
+
         function playSound(freq, type, duration) {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
@@ -112,10 +143,8 @@
             osc.stop(audioCtx.currentTime + duration);
         }
 
-        function setDifficulty(time) {
-            difficulty = time;
-            document.getElementById('btn-10').className = time === 10 ? "bg-indigo-600 px-3 py-1 rounded-lg text-xs font-bold border-b-2 border-indigo-800" : "bg-indigo-900 px-3 py-1 rounded-lg text-xs font-bold opacity-70";
-            document.getElementById('btn-20').className = time === 20 ? "bg-indigo-600 px-3 py-1 rounded-lg text-xs font-bold border-b-2 border-indigo-800" : "bg-indigo-900 px-3 py-1 rounded-lg text-xs font-bold opacity-70";
+        function updateDifficulty(val) {
+            difficulty = parseInt(val);
             resetGame();
         }
 
@@ -130,6 +159,7 @@
             const gridEl = document.getElementById('grid'); gridEl.innerHTML = '';
             targetWord = challenges[currentChallenge].word;
             document.getElementById('clue').textContent = challenges[currentChallenge].clue;
+            document.getElementById('missed-word').classList.add('hidden');
             const board = Array(64).fill(null);
             const dirs = [{dr: 0, dc: 1}, {dr: 1, dc: 0}, {dr: 1, dc: 1}, {dr: -1, dc: 1}, {dr: 1, dc: -1}, {dr: -1, dc: -1}];
             correctCellPositions = [];
@@ -166,6 +196,10 @@
         }
 
         function startDrag(cell) { 
+            if (!musicStarted) {
+                document.getElementById('bgMusic').play().catch(e => console.log("Music interaction required"));
+                musicStarted = true;
+            }
             if (!isProcessing) { 
                 isDragging = true; selectedCells = [cell]; cell.classList.add('selected'); 
                 playSound(440, 'sine', 0.1);
@@ -203,8 +237,18 @@
             if (lives <= 0) { alert("Game Over! Score: " + score); resetGame(); }
             else { 
                 isProcessing = true;
+                clearInterval(timerInterval);
+                document.getElementById('clue').classList.add('hidden');
+                const missedLabel = document.getElementById('missed-word');
+                missedLabel.textContent = "Word was: " + targetWord;
+                missedLabel.classList.remove('hidden');
+                
                 correctCellPositions.forEach(pos => document.querySelectorAll('.grid-cell')[pos].classList.add('reveal-correct'));
-                setTimeout(() => { isProcessing = false; nextLevel(); }, 1200);
+                setTimeout(() => { 
+                    isProcessing = false; 
+                    document.getElementById('clue').classList.remove('hidden');
+                    nextLevel(); 
+                }, 1500);
             }
         }
         function startTimer() {
